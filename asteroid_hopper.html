@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Asteroid Hopper</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #000010;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            overflow: hidden;
+            touch-action: none; /* Disables double-tap to zoom on mobile */
+        }
+        #game-container {
+            width: 100%;
+            max-width: 500px; /* Max width for larger screens */
+            height: 100%;
+            max-height: 800px;
+            background-color: #000010;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(100, 200, 255, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        }
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 24px;
+            text-shadow: 0 0 5px #fff, 0 0 10px #00aaff;
+        }
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 20, 40, 0.85);
+            backdrop-filter: blur(5px);
+            border: 2px solid #00aaff;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 170, 255, 0.5);
+            pointer-events: all;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .modal h2 {
+            margin-top: 0;
+            font-size: 28px;
+            color: #fff;
+            text-shadow: 0 0 8px #00aaff;
+        }
+        .modal p {
+            font-size: 16px;
+            margin-bottom: 25px;
+        }
+        .modal button {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            padding: 12px 25px;
+            border-radius: 10px;
+            border: 2px solid #00aaff;
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px #00aaff;
+        }
+        .modal button:hover {
+            background: #00aaff;
+            box-shadow: 0 0 15px #00aaff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="ui-overlay">
+            <div class="top-bar">
+                <div id="level-display">LEVEL: 1</div>
+                <div id="stars-display">STARS: 0/3</div>
+            </div>
+        </div>
+
+        <div id="start-modal" class="modal">
+            <h2>ASTEROID HOPPER</h2>
+            <p>Press the SPACE BAR to jump from one asteroid to the next.<br>Double-tap SPACE for a boost.<br>Collect all the stars to advance to the next level.<br>Watch out for moving and unstable asteroids!</p>
+            <button id="start-button">Start Game</button>
+        </div>
+
+        <div id="message-modal" class="modal" style="display: none;">
+            <h2 id="message-title"></h2>
+            <p id="message-text"></p>
+            <button id="next-level-button">Continue</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('game-container');
+
+        // --- UI Elements ---
+        const levelDisplay = document.getElementById('level-display');
+        const starsDisplay = document.getElementById('stars-display');
+        const startModal = document.getElementById('start-modal');
+        const startButton = document.getElementById('start-button');
+        const messageModal = document.getElementById('message-modal');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const nextLevelButton = document.getElementById('next-level-button');
+
+        let player, asteroids, stars, particles, lastTapTime;
+        let currentLevel = 0;
+        let starsCollected = 0;
+        let totalStars = 0;
+        let gameState = 'start'; // 'start', 'playing', 'levelComplete', 'gameOver'
+        lastTapTime = 0;
+
+        const JUMP_RANGE = 200;
+        const PLAYER_SPEED = 0.02; // Radians per frame
+        const JUMP_SPEED = 7;
+        const BOOST_SPEED = 8;
+        const DOUBLE_TAP_DELAY = 300; // ms
+        const PARTICLE_LIFESPAN = 80;
+
+        // --- Level Definitions ---
+        const levels = [
+            { // Level 1
+                asteroids: [
+                    { x: 0.5, y: 0.8, r: 40, type: 'static' },
+                    { x: 0.5, y: 0.5, r: 35, type: 'static' },
+                    { x: 0.5, y: 0.2, r: 45, type: 'static' },
+                ],
+                stars: [ { x: 0.5, y: 0.65 }, { x: 0.5, y: 0.35 } ]
+            },
+            { // Level 2
+                asteroids: [
+                    { x: 0.2, y: 0.8, r: 40, type: 'static' },
+                    { x: 0.8, y: 0.6, r: 30, type: 'static' },
+                    { x: 0.3, y: 0.4, r: 25, type: 'static' },
+                    { x: 0.7, y: 0.2, r: 35, type: 'static' },
+                ],
+                stars: [ { x: 0.5, y: 0.7 }, { x: 0.55, y: 0.5 }, { x: 0.5, y: 0.3 } ]
+            },
+            { // Level 3 - Moving Asteroids
+                asteroids: [
+                    { x: 0.5, y: 0.85, r: 40, type: 'static' },
+                    { x: 0.2, y: 0.55, r: 30, type: 'moving', path: { x1: 0.2, x2: 0.8, speed: 0.005 } },
+                    { x: 0.8, y: 0.25, r: 30, type: 'moving', path: { x1: 0.8, x2: 0.2, speed: 0.005 } },
+                ],
+                stars: [ { x: 0.5, y: 0.7 }, { x: 0.5, y: 0.4 } ]
+            },
+            { // Level 4 - Exploding Asteroids (REVISED)
+                asteroids: [
+                    { x: 0.2, y: 0.8, r: 40, type: 'static' },
+                    { x: 0.8, y: 0.8, r: 40, type: 'static' },
+                    { x: 0.5, y: 0.5, r: 30, type: 'exploding' },
+                    { x: 0.5, y: 0.2, r: 35, type: 'static' },
+                ],
+                stars: [ 
+                    { x: 0.35, y: 0.65 }, // Between bottom-left and center
+                    { x: 0.65, y: 0.5 },  // Near center asteroid (requires orbiting)
+                    { x: 0.5, y: 0.35 }   // Between center and top
+                ]
+            },
+             { // Level 5 - Challenge
+                asteroids: [
+                    { x: 0.5, y: 0.9, r: 35, type: 'static' },
+                    { x: 0.2, y: 0.6, r: 25, type: 'moving', path: { y1: 0.6, y2: 0.7, speed: 0.004 } },
+                    { x: 0.8, y: 0.6, r: 25, type: 'moving', path: { y1: 0.6, y2: 0.5, speed: 0.004 } },
+                    { x: 0.5, y: 0.4, r: 20, type: 'exploding' },
+                    { x: 0.2, y: 0.15, r: 30, type: 'static' },
+                    { x: 0.8, y: 0.15, r: 30, type: 'static' },
+                ],
+                stars: [ { x: 0.5, y: 0.75 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 0.25 } ]
+            },
+        ];
+
+        // --- Game Setup ---
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        function landOnAsteroid(targetAsteroid) {
+            player.state = 'orbiting';
+            player.asteroid = targetAsteroid;
+            const contactDx = player.x - targetAsteroid.x;
+            const contactDy = player.y - targetAsteroid.y;
+            player.angle = Math.atan2(contactDy, contactDx);
+
+            if (targetAsteroid.type === 'exploding' && !targetAsteroid.isTriggered) {
+                targetAsteroid.isTriggered = true;
+                // 5000 ms = 5 seconds
+                targetAsteroid.explosionTime = Date.now() + 5000;
+            }
+        }
+
+        function init() {
+            resizeCanvas();
+            loadLevel(currentLevel);
+            gameLoop();
+        }
+
+        function loadLevel(levelIndex) {
+            if (levelIndex >= levels.length) {
+                showModal('You Win!', 'You are the ultimate Asteroid Hopper!', 'Restart');
+                nextLevelButton.onclick = () => {
+                    currentLevel = 0;
+                    loadLevel(currentLevel);
+                    messageModal.style.display = 'none';
+                    gameState = 'playing';
+                };
+                gameState = 'gameOver';
+                return;
+            }
+            
+            const levelData = levels[levelIndex];
+            
+            asteroids = levelData.asteroids.map(a => ({
+                x: a.x * canvas.width,
+                y: a.y * canvas.height,
+                radius: a.r,
+                type: a.type,
+                color: a.type === 'exploding' ? '#ff6b6b' : '#a0a0a0',
+                path: a.path ? { ...a.path, current: 0, direction: 1 } : null,
+                originalX: a.x * canvas.width,
+                originalY: a.y * canvas.height,
+                isTriggered: a.type === 'exploding' ? false : null,
+                explosionTime: a.type === 'exploding' ? null : null,
+            }));
+            
+            stars = levelData.stars.map((s, i) => ({
+                id: i,
+                originalX: s.x * canvas.width,
+                originalY: s.y * canvas.height,
+                x: s.x * canvas.width, // Initial position
+                y: s.y * canvas.height, // Initial position
+                radius: 8,
+                collected: false,
+                wobbleAngle: Math.random() * Math.PI * 2, // Random start angle
+                wobbleSpeed: 0.03 + Math.random() * 0.02, // Random speed
+                wobbleRadius: 15 + Math.random() * 10    // Random radius
+            }));
+
+            player = {
+                asteroid: asteroids[0],
+                angle: Math.PI / 2,
+                x: 0,
+                y: 0,
+                state: 'orbiting', // 'orbiting', 'jumping', 'boosting'
+                jumpTarget: null,
+                size: 10,
+                color: '#4dff4d',
+                vx: 0,
+                vy: 0,
+            };
+
+            particles = [];
+            starsCollected = 0;
+            totalStars = stars.length;
+            
+            updateUI();
+        }
+        
+        function updateUI() {
+            levelDisplay.textContent = `LEVEL: ${currentLevel + 1}`;
+            starsDisplay.textContent = `STARS: ${starsCollected}/${totalStars}`;
+        }
+        
+        function showModal(title, text, buttonText) {
+            messageTitle.textContent = title;
+            messageText.innerHTML = text;
+            nextLevelButton.textContent = buttonText;
+            messageModal.style.display = 'flex';
+        }
+
+        // --- Game Logic ---
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Player movement state machine
+            switch (player.state) {
+                case 'orbiting':
+                    player.angle += PLAYER_SPEED;
+                    player.x = player.asteroid.x + Math.cos(player.angle) * (player.asteroid.radius + player.size);
+                    player.y = player.asteroid.y + Math.sin(player.angle) * (player.asteroid.radius + player.size);
+                    break;
+                
+                case 'jumping': {
+                    const dx = player.jumpTarget.x - player.x;
+                    const dy = player.jumpTarget.y - player.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < player.jumpTarget.radius + player.size) {
+                        // Landed on asteroid
+                        landOnAsteroid(player.jumpTarget);
+                    } else {
+                        player.x += (dx / dist) * JUMP_SPEED;
+                        player.y += (dy / dist) * JUMP_SPEED;
+                    }
+
+                    if (player.x < 0 || player.x > canvas.width || player.y < 0 || player.y > canvas.height) {
+                       gameOver('Lost in Space!', 'You missed your jump and drifted away.');
+                    }
+                    break;
+                }
+
+                case 'boosting':
+                    player.x += player.vx;
+                    player.y += player.vy;
+
+                    // Check for collision with any asteroid
+                    for (const a of asteroids) {
+                        if (a === player.asteroid) continue;
+                        const dx = a.x - player.x;
+                        const dy = a.y - player.y;
+                        if (Math.sqrt(dx*dx + dy*dy) < a.radius + player.size) {
+                            landOnAsteroid(a);
+                            return; // Exit update after landing
+                        }
+                    }
+
+                    // Check for out of bounds
+                    if (player.x < -player.size || player.x > canvas.width + player.size || player.y < -player.size || player.y > canvas.height + player.size) {
+                        gameOver('Lost in Space!', 'You boosted into the void.');
+                    }
+                    break;
+            }
+
+            // Check for exploding asteroids
+            [...asteroids].forEach(a => {
+                if (a.type === 'exploding' && a.isTriggered && Date.now() >= a.explosionTime) {
+                    createParticles(a.x, a.y, '#ff4444', 100); // Big explosion
+                    if (player.asteroid === a) {
+                        gameOver('KABOOM!', 'The asteroid you were on exploded!');
+                    }
+                    // Remove the now-exploded asteroid
+                    const index = asteroids.indexOf(a);
+                    if (index > -1) {
+                        asteroids.splice(index, 1);
+                    }
+                }
+            });
+
+            // Make stars wobble
+            stars.forEach(star => {
+                if (!star.collected) {
+                    star.wobbleAngle += star.wobbleSpeed;
+                    star.x = star.originalX + Math.cos(star.wobbleAngle) * star.wobbleRadius;
+                    star.y = star.originalY + Math.sin(star.wobbleAngle) * star.wobbleRadius;
+                }
+            });
+
+            // Star collection
+            stars.forEach(star => {
+                if (!star.collected) {
+                    const dx = star.x - player.x;
+                    const dy = star.y - player.y;
+                    if (Math.sqrt(dx * dx + dy * dy) < star.radius + player.size) {
+                        star.collected = true;
+                        starsCollected++;
+                        createParticles(star.x, star.y, '#ffd700', 20);
+                        updateUI();
+                    }
+                }
+            });
+            
+            // Level complete check
+            if (starsCollected === totalStars) {
+                gameState = 'levelComplete';
+                showModal(`Level ${currentLevel + 1} Complete!`, 'Great hopping! Get ready for the next challenge.', 'Next Level');
+                nextLevelButton.onclick = () => {
+                    currentLevel++;
+                    loadLevel(currentLevel);
+                    messageModal.style.display = 'none';
+                    if (gameState !== 'gameOver') { // Don't restart if final level was beaten
+                         gameState = 'playing';
+                    }
+                };
+            }
+            
+            // Update moving asteroids
+            asteroids.forEach(a => {
+                if (a.type === 'moving' && a.path) {
+                    const { path } = a;
+                    path.current += path.speed * path.direction;
+                    if (path.current > 1 || path.current < 0) {
+                        path.direction *= -1;
+                        path.current = Math.max(0, Math.min(1, path.current)); // Clamp value
+                    }
+                    if (path.x1 !== undefined) {
+                        a.x = a.originalX + (path.x2 * canvas.width - a.originalX) * path.current;
+                    }
+                    if (path.y1 !== undefined) {
+                         a.y = a.originalY + (path.y2 * canvas.height - a.originalY) * path.current;
+                    }
+                }
+            });
+
+            // Update particles
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.life <= 0) {
+                    particles.splice(index, 1);
+                }
+            });
+        }
+        
+        function gameOver(title, text) {
+            gameState = 'gameOver';
+            createParticles(player.x, player.y, '#ff4444', 50);
+            player.size = 0; // Hide player
+            showModal(title, text, 'Try Again');
+            nextLevelButton.onclick = () => {
+                loadLevel(currentLevel);
+                messageModal.style.display = 'none';
+                gameState = 'playing';
+            };
+        }
+
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x,
+                    y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: Math.random() * PARTICLE_LIFESPAN,
+                    color,
+                    radius: Math.random() * 3
+                });
+            }
+        }
+
+        // --- Drawing ---
+        function draw() {
+            // Background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw jump target indicator
+            if (gameState === 'playing' && player.state === 'orbiting') {
+                const target = findClosestJumpTarget();
+                if (target) {
+                    ctx.beginPath();
+                    ctx.moveTo(player.x, player.y);
+                    ctx.lineTo(target.x, target.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.arc(target.x, target.y, target.radius + 5, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(0, 170, 255, 0.5)';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw asteroids
+            asteroids.forEach(a => {
+                ctx.beginPath();
+                ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+                ctx.fillStyle = a.color;
+                ctx.fill();
+                // Add a little crater detail
+                ctx.beginPath();
+                ctx.arc(a.x + a.radius*0.3, a.y - a.radius*0.4, a.radius * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(a.x - a.radius*0.5, a.y - a.radius*0.1, a.radius * 0.15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw explosion timer visualization
+                if (a.type === 'exploding' && a.isTriggered) {
+                    const timeRemaining = a.explosionTime - Date.now();
+                    if (timeRemaining > 0) {
+                        // Pulsing overlay
+                        const pulse = Math.abs(Math.sin(Date.now() / 100));
+                        ctx.fillStyle = `rgba(255, 100, 100, ${pulse * 0.4})`;
+                        ctx.beginPath();
+                        ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Countdown timer ring
+                        const countdownPercent = timeRemaining / 5000;
+                        ctx.beginPath();
+                        ctx.moveTo(a.x, a.y);
+                        ctx.arc(a.x, a.y, a.radius + 4, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * countdownPercent));
+                        ctx.closePath();
+                        ctx.fillStyle = `rgba(255, 0, 0, 0.7)`;
+                        ctx.fill();
+                    }
+                }
+            });
+
+            // Draw stars
+            stars.forEach(star => {
+                if (!star.collected) {
+                    ctx.save();
+                    ctx.translate(star.x, star.y);
+                    ctx.rotate(Date.now() / 1000);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.shadowColor = '#ffd700';
+                    ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    for(let i = 0; i < 5; i++) {
+                        ctx.lineTo(Math.cos((18 + i * 72) / 180 * Math.PI) * star.radius, -Math.sin((18 + i * 72) / 180 * Math.PI) * star.radius);
+                        ctx.lineTo(Math.cos((54 + i * 72) / 180 * Math.PI) * star.radius * 0.4, -Math.sin((54 + i * 72) / 180 * Math.PI) * star.radius * 0.4);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+            
+            // Draw particles
+            particles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / PARTICLE_LIFESPAN;
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            });
+
+            // Draw player
+            if (player.size > 0) {
+                 ctx.beginPath();
+                 ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+                 ctx.fillStyle = player.color;
+                 ctx.shadowColor = player.color;
+                 ctx.shadowBlur = 15;
+                 ctx.fill();
+                 ctx.shadowBlur = 0;
+            }
+        }
+        
+        function findClosestJumpTarget() {
+             let closestTarget = null;
+             let minDistance = JUMP_RANGE;
+
+             asteroids.forEach(a => {
+                if (a === player.asteroid) return;
+                const dx = a.x - player.x;
+                const dy = a.y - player.y;
+                const dist = Math.sqrt(dx*dx + dy*dy) - a.radius;
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    closestTarget = a;
+                }
+            });
+            return closestTarget;
+        }
+
+        // --- Event Handlers ---
+        function handleAction() {
+            if (gameState !== 'playing' || player.state !== 'orbiting') return;
+
+            const now = Date.now();
+            const timeSinceLastTap = now - lastTapTime;
+
+            if (timeSinceLastTap < DOUBLE_TAP_DELAY) {
+                // Double tap: Boost
+                player.state = 'boosting';
+                const launchAngle = player.angle; // Boost radially outward
+                player.vx = Math.cos(launchAngle) * BOOST_SPEED;
+                player.vy = Math.sin(launchAngle) * BOOST_SPEED;
+                createParticles(player.x, player.y, '#00aaff', 15);
+
+            } else {
+                // Single tap: Jump
+                const target = findClosestJumpTarget();
+                if (target) {
+                    player.state = 'jumping';
+                    player.jumpTarget = target;
+                }
+            }
+
+            lastTapTime = now;
+        }
+        
+        startButton.addEventListener('click', () => {
+            startModal.style.display = 'none';
+            gameState = 'playing';
+        });
+
+        // --- Game Loop ---
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault(); // Prevent page from scrolling
+                handleAction();
+            }
+        });
+        
+        // --- Start the game ---
+        init();
+
+    </script>
+</body>
+</html>
