@@ -127,7 +127,7 @@
             let countStartTime = null;
             let allCountData = []; 
             let isSimplified = false; 
-            const requiredTapsForBPM = 4;
+            const requiredTapsForBPM = 5;
 
             function handleTap() {
                 mainContent.classList.remove('pulse');
@@ -320,6 +320,19 @@
                 bpmInstructions.innerHTML = 'Tap the <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Spacebar</kbd> or the enchanted area to divine the beat.';
                 mainContent.classList.remove('pulse');
             }
+            
+            function handleGeneralTap(e) {
+                // Ignore taps on interactive elements that have their own handlers
+                if (e.target.closest('button') || e.target.closest('input')) {
+                    return;
+                }
+                
+                // For touchstart, prevent the browser from also firing a click event
+                if (e.type === 'touchstart') {
+                    e.preventDefault(); 
+                }
+                handleTap();
+            }
 
             window.addEventListener('keydown', (e) => {
                 if (e.code === 'Space') {
@@ -328,12 +341,9 @@
                 }
             });
 
-            app.addEventListener('click', (e) => {
-                if (e.target.closest('button') || e.target.closest('input')) {
-                    return;
-                }
-                handleTap();
-            });
+            // Use the general tap handler for both mouse clicks and screen taps
+            app.addEventListener('click', handleGeneralTap);
+            app.addEventListener('touchstart', handleGeneralTap, { passive: false });
 
             resetButton.addEventListener('click', (e) => {
                 e.stopPropagation();
