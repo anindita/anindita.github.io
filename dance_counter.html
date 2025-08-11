@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Enchanted Metronome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation; /* Prevents double-tap to zoom on mobile */
+        }
+        .font-magic {
+            font-family: 'Cinzel', serif;
+        }
+        .text-glow {
+            text-shadow: 0 0 8px rgba(232, 121, 249, 0.7), 0 0 10px rgba(232, 121, 249, 0.5);
+        }
+        .pulse {
+            animation: pulse-animation 0.4s ease-out;
+        }
+        @keyframes pulse-animation {
+            0% { box-shadow: 0 0 25px rgba(167, 139, 250, 0.3); transform: scale(1); }
+            50% { box-shadow: 0 0 40px rgba(167, 139, 250, 0.7); transform: scale(1.03); }
+            100% { box-shadow: 0 0 25px rgba(167, 139, 250, 0.3); transform: scale(1); }
+        }
+        .entry-fade-in {
+            animation: entry-fade-in 0.3s ease-out;
+        }
+        @keyframes entry-fade-in {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .shimmering-bg {
+            background-size: 200% 200%;
+            animation: shimmer 15s ease infinite;
+        }
+        @keyframes shimmer {
+            0%{background-position:0% 50%}
+            50%{background-position:100% 50%}
+            100%{background-position:0% 50%}
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 text-white flex flex-col items-center justify-center min-h-screen p-4 antialiased shimmering-bg">
+
+    <div id="app" class="w-full max-w-2xl text-center">
+        
+        <header class="mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-fuchsia-400 font-magic text-glow">The Enchanted Metronome</h1>
+            <p class="text-purple-300 mt-2">Weave your rhythm into magical counts.</p>
+        </header>
+
+        <main id="main-content" class="bg-black/30 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 w-full border border-purple-500/30" style="box-shadow: 0 0 25px rgba(167, 139, 250, 0.3);">
+            
+            <div id="bpm-phase">
+                <div class="mb-4">
+                    <h2 class="text-2xl font-bold tracking-tight font-magic text-fuchsia-300">Step 1: Channel the Tempo</h2>
+                    <p id="bpm-instructions" class="text-purple-300 mt-1">Tap the <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Spacebar</kbd> or the enchanted area to divine the beat.</p>
+                </div>
+                <div id="bpm-display" class="my-6 text-7xl font-black text-white transition-colors duration-300 text-glow">
+                    --
+                </div>
+                <div id="tap-feedback" class="h-6 text-sm text-fuchsia-400"></div>
+
+                <div class="mt-6 border-t border-purple-800/50 pt-6">
+                    <p class="text-purple-300 mb-3">Or set it by scrying:</p>
+                    <div class="flex justify-center gap-2">
+                        <input type="number" id="bpm-input" placeholder="e.g. 128" class="bg-purple-900/50 text-white w-32 text-center rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:outline-none border border-purple-700/50">
+                        <button id="set-bpm-button" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md shadow-fuchsia-900/50">Set BPM</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="count-phase" class="hidden">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 pb-4 border-b border-purple-800/50">
+                    <div>
+                        <h2 class="text-2xl font-bold tracking-tight font-magic text-fuchsia-300">Step 2: Scribe the Spell</h2>
+                        <p class="text-purple-300 mt-1">Tap to capture the magic moments. The first tap sets the '1'.</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 text-right">
+                        <div class="text-sm text-purple-300">Tempo Locked</div>
+                        <div id="final-bpm" class="text-3xl font-bold text-fuchsia-400 text-glow">120</div>
+                    </div>
+                </div>
+                <div id="counts-output" class="mt-6 bg-black/30 p-4 rounded-lg text-2xl font-mono tracking-wider text-left min-h-[68px] max-h-48 overflow-y-auto flex flex-col space-y-2 border border-purple-800/50">
+                    <!-- Counts will be injected here as separate lines -->
+                </div>
+                <button id="simplify-button" class="hidden mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-md shadow-indigo-900/50">
+                    Simplify the Spell
+                </button>
+            </div>
+
+        </main>
+
+        <footer class="mt-8 w-full max-w-2xl">
+            <button id="reset-button" class="w-full bg-pink-700 hover:bg-pink-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-200 ease-in-out transform hover:scale-105 shadow-pink-900/50">
+                Start Anew
+            </button>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const app = document.getElementById('app');
+            const mainContent = document.getElementById('main-content');
+            const bpmPhase = document.getElementById('bpm-phase');
+            const countPhase = document.getElementById('count-phase');
+            const bpmDisplay = document.getElementById('bpm-display');
+            const bpmInstructions = document.getElementById('bpm-instructions');
+            const tapFeedback = document.getElementById('tap-feedback');
+            const finalBpmDisplay = document.getElementById('final-bpm');
+            const countsOutput = document.getElementById('counts-output');
+            const resetButton = document.getElementById('reset-button');
+            const bpmInput = document.getElementById('bpm-input');
+            const setBpmButton = document.getElementById('set-bpm-button');
+            const simplifyButton = document.getElementById('simplify-button');
+
+            let isCalculatingBPM = true;
+            let taps = [];
+            let bpm = 0;
+            let beatDuration = 0;
+            let countStartTime = null;
+            let allCountData = []; 
+            let isSimplified = false; 
+            const requiredTapsForBPM = 4;
+
+            function handleTap() {
+                mainContent.classList.remove('pulse');
+                void mainContent.offsetWidth; 
+                mainContent.classList.add('pulse');
+
+                if (isCalculatingBPM) {
+                    handleBpmTap();
+                } else {
+                    handleCountTap();
+                }
+            }
+
+            function handleBpmTap() {
+                const now = Date.now();
+                taps.push(now);
+
+                if (taps.length > 1) {
+                    const intervals = [];
+                    for (let i = 1; i < taps.length; i++) {
+                        intervals.push(taps[i] - taps[i - 1]);
+                    }
+                    const averageInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                    
+                    if (averageInterval > 0) {
+                        bpm = Math.round(60000 / averageInterval);
+                        bpmDisplay.textContent = bpm;
+                    }
+                }
+                
+                const tapsRemaining = requiredTapsForBPM - taps.length;
+                if(tapsRemaining > 0) {
+                    tapFeedback.textContent = `Tap ${tapsRemaining} more time${tapsRemaining > 1 ? 's' : ''}...`;
+                } else {
+                     tapFeedback.textContent = `Tempo locked!`;
+                }
+
+                if (taps.length >= requiredTapsForBPM) {
+                    setTimeout(lockBpmAndSwitchPhase, 300);
+                }
+            }
+            
+            function lockBpmAndSwitchPhase() {
+                if (bpm <= 0) return;
+                isCalculatingBPM = false;
+                beatDuration = 60000 / bpm;
+                
+                finalBpmDisplay.textContent = bpm;
+                bpmPhase.classList.add('hidden');
+                countPhase.classList.remove('hidden');
+            }
+
+            function handleCountTap() {
+                const now = Date.now();
+                if (!countStartTime) {
+                    countStartTime = now;
+                }
+
+                const elapsed = now - countStartTime;
+                const totalBeats = elapsed / beatDuration;
+                
+                const countString = quantizeBeat(totalBeats);
+                allCountData.push({ text: countString, totalBeats: totalBeats });
+
+                if (allCountData.length > 0) {
+                    simplifyButton.classList.remove('hidden');
+                }
+
+                renderCounts();
+            }
+
+            function handleManualBpmSet() {
+                const manualBpm = parseInt(bpmInput.value, 10);
+                if (!isNaN(manualBpm) && manualBpm > 20 && manualBpm < 400) {
+                    bpm = manualBpm;
+                    bpmDisplay.textContent = bpm;
+                    tapFeedback.textContent = `Tempo set to ${bpm}!`;
+                    setTimeout(lockBpmAndSwitchPhase, 300);
+                } else {
+                    tapFeedback.textContent = 'Please enter a valid tempo (e.g., 120)';
+                    bpmInput.value = '';
+                    bpmInput.focus();
+                }
+            }
+
+            function quantizeBeat(totalBeats) {
+                const beatWithOffset = totalBeats + 0.01;
+                const beatFloor = Math.floor(beatWithOffset);
+                const countFloor = (beatFloor % 8) + 1;
+                const fraction = beatWithOffset - beatFloor;
+                const boundary1 = 0.125;
+                const boundary2 = 0.375;
+                const boundary3 = 0.625;
+                const boundary4 = 0.875;
+
+                if (fraction > boundary4) {
+                    const nextCount = (countFloor % 8) + 1;
+                    return `${nextCount}`;
+                } else if (fraction > boundary3) {
+                    return `${countFloor}a`;
+                } else if (fraction > boundary2) {
+                    return `${countFloor}&`;
+                } else if (fraction > boundary1) {
+                    return `${countFloor}e`;
+                } else {
+                    return `${countFloor}`;
+                }
+            }
+
+            function renderCounts() {
+                countsOutput.innerHTML = '';
+                let lastDisplayedSimplifiedText = null;
+
+                const countsToRender = [];
+                if (isSimplified) {
+                    allCountData.forEach(count => {
+                        const simplifiedText = count.text.replace(/[ea]/g, '');
+                        if (simplifiedText !== lastDisplayedSimplifiedText) {
+                            countsToRender.push({ ...count, text: simplifiedText });
+                            lastDisplayedSimplifiedText = simplifiedText;
+                        }
+                    });
+                } else {
+                    countsToRender.push(...allCountData);
+                }
+
+                countsToRender.forEach(count => {
+                    addCountEntry(count.text, count.totalBeats);
+                });
+                
+                countsOutput.scrollTop = countsOutput.scrollHeight;
+            }
+
+            function addCountEntry(text, totalBeats) {
+                const beatWithOffset = totalBeats + 0.02;
+                let currentPhraseIndex = Math.floor(beatWithOffset / 8);
+                const beatFloor = Math.floor(beatWithOffset);
+                const fraction = beatWithOffset - beatFloor;
+                const boundary4 = 0.875;
+
+                if ((beatFloor % 8 === 7) && (fraction > boundary4)) {
+                    currentPhraseIndex++;
+                }
+                
+                let currentLine;
+                const lines = countsOutput.getElementsByClassName('count-line');
+                let targetLine = Array.from(lines).find(line => parseInt(line.dataset.phraseIndex) === currentPhraseIndex);
+
+                if (!targetLine) {
+                    currentLine = document.createElement('div');
+                    currentLine.className = 'w-full flex items-center flex-wrap count-line';
+                    currentLine.dataset.phraseIndex = currentPhraseIndex;
+                    countsOutput.appendChild(currentLine);
+                } else {
+                    currentLine = targetLine;
+                }
+
+                if (currentLine.children.length > 0) {
+                    const separator = document.createElement('span');
+                    separator.className = 'text-purple-400/80 mx-3 text-xl';
+                    separator.textContent = '✧';
+                    currentLine.appendChild(separator);
+                }
+
+                const entry = document.createElement('span');
+                entry.textContent = text;
+                entry.className = 'text-fuchsia-300 entry-fade-in';
+                currentLine.appendChild(entry);
+            }
+
+            function resetApp() {
+                isCalculatingBPM = true;
+                taps = [];
+                bpm = 0;
+                beatDuration = 0;
+                countStartTime = null;
+                allCountData = [];
+                isSimplified = false;
+
+                bpmDisplay.textContent = '--';
+                tapFeedback.textContent = '';
+                countsOutput.innerHTML = '';
+                bpmInput.value = '';
+                
+                countPhase.classList.add('hidden');
+                bpmPhase.classList.remove('hidden');
+                simplifyButton.classList.add('hidden');
+                simplifyButton.textContent = 'Simplify the Spell';
+                
+                bpmInstructions.innerHTML = 'Tap the <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Spacebar</kbd> or the enchanted area to divine the beat.';
+                mainContent.classList.remove('pulse');
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    handleTap();
+                }
+            });
+
+            app.addEventListener('click', (e) => {
+                if (e.target.closest('button') || e.target.closest('input')) {
+                    return;
+                }
+                handleTap();
+            });
+
+            resetButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                resetApp();
+            });
+
+            setBpmButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleManualBpmSet();
+            });
+
+            bpmInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleManualBpmSet();
+                }
+            });
+
+            simplifyButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                isSimplified = !isSimplified;
+                simplifyButton.textContent = isSimplified ? 'Reveal Full Spell' : 'Simplify the Spell';
+                renderCounts();
+            });
+        });
+    </script>
+</body>
+</html>
