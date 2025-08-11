@@ -86,7 +86,7 @@
                         <div id="final-bpm" class="text-3xl font-bold text-fuchsia-400 text-glow">120</div>
                     </div>
                 </div>
-                <div id="counts-output" class="mt-6 bg-black/30 p-4 rounded-lg text-2xl font-mono tracking-wider text-left min-h-[68px] max-h-48 overflow-y-auto flex flex-col space-y-2 border border-purple-800/50">
+                <div id="counts-output" class="mt-6 bg-black/30 p-4 rounded-lg text-2xl font-mono tracking-wider text-left flex flex-col space-y-2 border border-purple-800/50">
                     <!-- Counts will be injected here as separate lines -->
                 </div>
                  <div id="controls-panel" class="hidden mt-4 space-y-2">
@@ -260,7 +260,7 @@
                     addCountEntry(count.text, count.totalBeats);
                 });
                 
-                countsOutput.scrollTop = countsOutput.scrollHeight;
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
             }
 
             function addCountEntry(text, totalBeats) {
