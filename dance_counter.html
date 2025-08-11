@@ -89,9 +89,11 @@
                 <div id="counts-output" class="mt-6 bg-black/30 p-4 rounded-lg text-2xl font-mono tracking-wider text-left min-h-[68px] max-h-48 overflow-y-auto flex flex-col space-y-2 border border-purple-800/50">
                     <!-- Counts will be injected here as separate lines -->
                 </div>
-                <button id="simplify-button" class="hidden mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-md shadow-indigo-900/50">
-                    Simplify the Spell
-                </button>
+                 <div id="controls-panel" class="hidden mt-4 space-y-2">
+                    <button id="simplify-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 shadow-md shadow-indigo-900/50">
+                        Simplify the Spell
+                    </button>
+                </div>
             </div>
 
         </main>
@@ -106,7 +108,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const app = document.getElementById('app');
             const mainContent = document.getElementById('main-content');
             const bpmPhase = document.getElementById('bpm-phase');
             const countPhase = document.getElementById('count-phase');
@@ -118,6 +119,7 @@
             const resetButton = document.getElementById('reset-button');
             const bpmInput = document.getElementById('bpm-input');
             const setBpmButton = document.getElementById('set-bpm-button');
+            const controlsPanel = document.getElementById('controls-panel');
             const simplifyButton = document.getElementById('simplify-button');
 
             let isCalculatingBPM = true;
@@ -193,7 +195,7 @@
                 allCountData.push({ text: countString, totalBeats: totalBeats });
 
                 if (allCountData.length > 0) {
-                    simplifyButton.classList.remove('hidden');
+                    controlsPanel.classList.remove('hidden');
                 }
 
                 renderCounts();
@@ -243,9 +245,9 @@
 
                 const countsToRender = [];
                 if (isSimplified) {
-                    allCountData.forEach(count => {
+                     allCountData.forEach(count => {
                         const simplifiedText = count.text.replace(/[ea]/g, '');
-                        if (simplifiedText !== lastDisplayedSimplifiedText) {
+                        if (simplifiedText !== lastDisplayedSimplifiedText && simplifiedText.trim() !== '') {
                             countsToRender.push({ ...count, text: simplifiedText });
                             lastDisplayedSimplifiedText = simplifiedText;
                         }
@@ -284,6 +286,9 @@
                 } else {
                     currentLine = targetLine;
                 }
+                
+                const lastEntry = currentLine.lastElementChild;
+                if(lastEntry && lastEntry.textContent === text) return;
 
                 if (currentLine.children.length > 0) {
                     const separator = document.createElement('span');
@@ -314,7 +319,7 @@
                 
                 countPhase.classList.add('hidden');
                 bpmPhase.classList.remove('hidden');
-                simplifyButton.classList.add('hidden');
+                controlsPanel.classList.add('hidden');
                 simplifyButton.textContent = 'Simplify the Spell';
                 
                 bpmInstructions.innerHTML = 'Tap the <kbd class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg">Spacebar</kbd> or the enchanted area to divine the beat.';
@@ -322,12 +327,9 @@
             }
             
             function handleGeneralTap(e) {
-                // Ignore taps on interactive elements that have their own handlers
                 if (e.target.closest('button') || e.target.closest('input')) {
                     return;
                 }
-                
-                // For touchstart, prevent the browser from also firing a click event
                 if (e.type === 'touchstart') {
                     e.preventDefault(); 
                 }
@@ -335,40 +337,21 @@
             }
 
             window.addEventListener('keydown', (e) => {
-                if (e.code === 'Space') {
+                if (e.code === 'Space' && !e.target.closest('input')) {
                     e.preventDefault();
                     handleTap();
                 }
             });
 
-            // Use the general tap handler for both mouse clicks and screen taps
-            app.addEventListener('click', handleGeneralTap);
-            app.addEventListener('touchstart', handleGeneralTap, { passive: false });
+            mainContent.addEventListener('click', handleGeneralTap);
+            mainContent.addEventListener('touchstart', handleGeneralTap, { passive: false });
+            
+            // Event Listeners
+            resetButton.addEventListener('click', (e) => { e.stopPropagation(); resetApp(); });
+            setBpmButton.addEventListener('click', (e) => { e.stopPropagation(); handleManualBpmSet(); });
+            bpmInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); handleManualBpmSet(); } });
+            simplifyButton.addEventListener('click', (e) => { e.stopPropagation(); isSimplified = !isSimplified; simplifyButton.textContent = isSimplified ? 'Reveal Full Spell' : 'Simplify the Spell'; renderCounts(); });
 
-            resetButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                resetApp();
-            });
-
-            setBpmButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleManualBpmSet();
-            });
-
-            bpmInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleManualBpmSet();
-                }
-            });
-
-            simplifyButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                isSimplified = !isSimplified;
-                simplifyButton.textContent = isSimplified ? 'Reveal Full Spell' : 'Simplify the Spell';
-                renderCounts();
-            });
         });
     </script>
 </body>
